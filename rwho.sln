@@ -1,0 +1,21 @@
+Microsoft Visual Studio Solution File, Format Version 8.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "rwho", "rwho.csproj", "{F709828D-0AE4-4032-8261-878FC8E9E287}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfiguration) = preSolution
+		Debug = Debug
+		Release = Release
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{F709828D-0AE4-4032-8261-878FC8E9E287}.Debug.ActiveCfg = Debug|.NET
+		{F709828D-0AE4-4032-8261-878FC8E9E287}.Debug.Build.0 = Debug|.NET
+		{F709828D-0AE4-4032-8261-878FC8E9E287}.Release.ActiveCfg = Release|.NET
+		{F709828D-0AE4-4032-8261-878FC8E9E287}.Release.Build.0 = Release|.NET
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal
