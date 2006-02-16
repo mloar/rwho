@@ -250,7 +250,7 @@ You must restart the service after changing these settings for
         string loc = rd.GetType().Assembly.Location;
         string maxver = "";
         
-        foreach(string dir in System.IO.Directory.GetDirectories(System.Environment.SystemDirectory.Replace("\\system32","") + "\\Microsoft.NET\\Framework","v?.?.????"))
+        foreach(string dir in System.IO.Directory.GetDirectories(System.Environment.SystemDirectory.Replace("\\system32","") + "\\Microsoft.NET\\Framework","v?.?.?????"))
         {
           if(maxver.Length == 0 || (maxver.CompareTo(dir) < 0))
             maxver = dir;
