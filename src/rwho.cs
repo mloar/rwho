@@ -1,18 +1,28 @@
 /*
- *  Copyright (c) 2005 Association for Computing Machinery at the University of Illinois at Urbana-Champaign.
+ *  Copyright (c) 2005-2006 Association for Computing Machinery at the University of Illinois at Urbana-Champaign.
  *  All rights reserved.
  * 
  *  Developed by:     Matthew Loar
  *            ACM@UIUC
  *            http://www.acm.uiuc.edu
  *
- *  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal with the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
+ *  documentation files (the "Software"), to deal with the Software without restriction, including without limitation 
+ *  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+ *  permit persons to whom the Software is furnished to do so, subject to the following conditions:
  *
- *  * Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimers.
- *  * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimers in the documentation and/or other materials provided with the distribution.
- *  * Neither the names of Matthew Loar, ACM@UIUC, nor the names of its contributors may be used to endorse or promote products derived from this Software without specific prior written permission. 
+ *  * Redistributions of source code must retain the above copyright notice, this list of conditions and the following 
+ *    disclaimers.
+ *  * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the 
+ *    following disclaimers in the documentation and/or other materials provided with the distribution.
+ *  * Neither the names of Matthew Loar, ACM@UIUC, nor the names of its contributors may be used to endorse or promote 
+ *    products derived from this Software without specific prior written permission. 
  *
- *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS WITH THE SOFTWARE.
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO 
+ *  THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+ *  CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF 
+ *  CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS 
+ *  WITH THE SOFTWARE.
  */
 using System;
 using System.Collections;
@@ -292,7 +302,8 @@ You must restart the service after changing these settings for
         else
         {
           Console.WriteLine("rwho for Windows v" + rd.GetType().Assembly.GetName().Version.ToString());
-          Console.WriteLine("Copyright (C) 2005 ACM@UIUC.  All rights reserved.");
+          Console.WriteLine("Copyright (C) 2005-2006 ACM@UIUC.  Copying permitted under the terms of");
+          Console.WriteLine("the University of Illinois-NCSA Open Source License.");
           Console.WriteLine("");
           Console.WriteLine("Written by Matthew Loar, the awesomest C# hacker EVAR!");
         }
@@ -505,78 +516,79 @@ You must restart the service after changing these settings for
 
     void RecvData(IAsyncResult ar)
     {
-      if(!initialized)
-        return;
-      try
+      if(initialized)
       {
-        int timestamp = (int)((DateTime.UtcNow.Ticks - UNIX_ZERO_TICKS)/TimeSpan.TicksPerSecond);
-        int bytes = sock.EndReceive(ar);
-        
-        if(bytes < 60)
-          EventLog.WriteEntry("rwhod","Malformed packet received.",EventLogEntryType.Warning);
-        else
+        try
         {
-          byte[] hostname = new byte[32];
-          Array.Copy(buffer,12,hostname,0,32);
+          int timestamp = (int)((DateTime.UtcNow.Ticks - UNIX_ZERO_TICKS)/TimeSpan.TicksPerSecond);
+          int bytes = sock.EndReceive(ar);
 
-          XmlElement node = (XmlElement)cache.FirstChild.SelectSingleNode("descendant::host[attribute::hostname='" + enc.GetString(hostname).Split('\0')[0] + "']");
-          if(node == null)
+          if(bytes < 60)
+            EventLog.WriteEntry("rwhod","Malformed packet received.",EventLogEntryType.Warning);
+          else
           {
-            node = cache.CreateElement("host");
-            cache.FirstChild.AppendChild(node);
-          }
-          node.RemoveAll();
-          
-          node.SetAttribute("hostname",enc.GetString(hostname).Split('\0')[0]);
-          node.SetAttribute("uptime",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,56))));
-          node.SetAttribute("sendtime",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,4))));
-          node.SetAttribute("recvtime",string.Format("{0}",(int)timestamp));
-          node.SetAttribute("loadav0",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,44))));
-          node.SetAttribute("loadav1",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,48))));
-          node.SetAttribute("loadav2",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,52))));
-          
-          // Declare these up here to avoid allocating memory in every loop iteration
-          byte[] line = new byte[8];
-          byte[] name = new byte[8];
-          
-          if(bytes >= 84)
-          {
-            for(int i = 60; i < bytes; i+=24)
+            byte[] hostname = new byte[32];
+            Array.Copy(buffer,12,hostname,0,32);
+
+            XmlElement node = (XmlElement)cache.FirstChild.SelectSingleNode("descendant::host[attribute::hostname='" + enc.GetString(hostname).Split('\0')[0] + "']");
+            if(node == null)
             {
-              XmlElement usernode = cache.CreateElement("user");
-              node.AppendChild(usernode);
-
-              Array.Copy(buffer,i,line,0,8);
-              Array.Copy(buffer,i+8,name,0,8);
-            
-              usernode.SetAttribute("name",enc.GetString(name).Split('\0')[0]);
-              usernode.SetAttribute("line",enc.GetString(line).Split('\0')[0]);
-              usernode.SetAttribute("time",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,i+16))));
-              usernode.SetAttribute("idle",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,i+20))));
+              node = cache.CreateElement("host");
+              cache.FirstChild.AppendChild(node);
             }
+            node.RemoveAll();
+
+            node.SetAttribute("hostname",enc.GetString(hostname).Split('\0')[0]);
+            node.SetAttribute("uptime",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,56))));
+            node.SetAttribute("sendtime",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,4))));
+            node.SetAttribute("recvtime",string.Format("{0}",(int)timestamp));
+            node.SetAttribute("loadav0",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,44))));
+            node.SetAttribute("loadav1",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,48))));
+            node.SetAttribute("loadav2",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,52))));
+
+            // Declare these up here to avoid allocating memory in every loop iteration
+            byte[] line = new byte[8];
+            byte[] name = new byte[8];
+
+            if(bytes >= 84)
+            {
+              for(int i = 60; i < bytes; i+=24)
+              {
+                XmlElement usernode = cache.CreateElement("user");
+                node.AppendChild(usernode);
+
+                Array.Copy(buffer,i,line,0,8);
+                Array.Copy(buffer,i+8,name,0,8);
+
+                usernode.SetAttribute("name",enc.GetString(name).Split('\0')[0]);
+                usernode.SetAttribute("line",enc.GetString(line).Split('\0')[0]);
+                usernode.SetAttribute("time",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,i+16))));
+                usernode.SetAttribute("idle",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,i+20))));
+              }
+            }
+
+            writer.BaseStream.Seek(0,System.IO.SeekOrigin.Begin);
+            writer.BaseStream.SetLength(0);
+            cache.WriteTo(writer);
+            writer.Flush();
+            Console.Write("\r\n");
           }
-          
-          writer.BaseStream.Seek(0,System.IO.SeekOrigin.Begin);
-          writer.BaseStream.SetLength(0);
-          cache.WriteTo(writer);
-          writer.Flush();
-          Console.Write("\r\n");
+        }
+        catch(Exception e)
+        {
+          EventLog.WriteEntry("rwhod",e.Message + e.StackTrace,EventLogEntryType.Error);
+        }
+        if(exit)
+        {
+          sock.Close();
+          writer.Close();
+          writer = null;
+          sock = null;
+          buffer = null;
+          return;
         }
       }
-      catch(Exception e)
-      {
-        EventLog.WriteEntry("rwhod",e.Message + e.StackTrace,EventLogEntryType.Error);
-      }
-      if(exit)
-      {
-        sock.Close();
-        writer.Close();
-        writer = null;
-        sock = null;
-        buffer = null;
-      }
-      else
-        sock.BeginReceive(buffer,0,buffer.Length,SocketFlags.None,new AsyncCallback(RecvData),ar.AsyncState);
+      sock.BeginReceive(buffer,0,buffer.Length,SocketFlags.None,new AsyncCallback(RecvData),ar.AsyncState);
     }
     void SendData(object state)
     {
@@ -712,6 +724,11 @@ You must restart the service after changing these settings for
         sock.SendTo(buffy,new IPEndPoint(IPAddress.Broadcast,513));
 
         GC.Collect();
+      }
+      catch(SocketException e)
+      {
+        EventLog.WriteEntry("rwhod", string.Format("Encountered socket error %d %s", e.ErrorCode, e.StackTrace), 
+              EventLogEntryType.Error);
       }
       catch(Exception e)
       {
