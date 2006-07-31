@@ -1,31 +1,31 @@
 <?xml version="1.0" ?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2003/01/wi">
 	<Product Id="D0465253-7133-4E4C-98B7-EC190CDBBB7F" UpgradeCode="941AC7A4-03DD-478D-B13D-BD8C734901FC"
-		Name="rwho" Language="1033" Version="1.4.3" Manufacturer="ACM@UIUC">
-		<Package Id="????????-????-????-????-????????????" Description="rwho for Windows" Comments="This will appear in the file summary stream."
-			InstallerVersion="200" Compressed="yes" />
-		<Binary Id="InstallUtil" src="InstallUtil\InstallUtil.ibd" />
-		<Binary Id="MSVBDPCADLL" src="InstallUtil\MSVBDPCADLL.ibd" />
-		<Binary Id="VSDNETCFG" src="InstallUtil\VSDNETCFG.ibd" />
+		Name="rwho" Language="1033" Version="1.4.5" Manufacturer="ACM@UIUC">
+		<Package Id="????????-????-????-????-????????????" Description="rwho for Windows" Manufacturer="ACM@UIUC"
+      InstallerVersion="200" Compressed="yes" />
+		<Binary Id="InstallUtil" SourceFile="InstallUtil\InstallUtil.ibd" />
+		<Binary Id="MSVBDPCADLL" SourceFile="InstallUtil\MSVBDPCADLL.ibd" />
+		<Binary Id="VSDNETCFG" SourceFile="InstallUtil\VSDNETCFG.ibd" />
 		<Media Id="1" Cabinet="Product.cab" EmbedCab="yes" />
 		<Directory Id="TARGETDIR" Name="SourceDir">
-			<Directory Id="ProgramFilesFolder">
-				<Directory Id="INSTALLDIR" Name="rwho">
-					<Component Id="rwhoComponent" Guid="4EE79C8F-AFE9-D6B7-F9BD-647D69D28148">
-						<File Id="rwho.exeFile" Name="rwho.exe" DiskId="1" src="rwho.exe" Vital="yes" KeyPath="yes" />
-						<Environment Id="UpdatePath" Name="PATH" Action="create" System="yes" Part="last" Value="[INSTALLDIR]" />
-					</Component>
-				</Directory>
+			<Directory Id="INSTALLDIR" Name="rwho">
+				<Component Id="rwhoComponent" Guid="4EE79C8F-AFE9-D6B7-F9BD-647D69D28148">
+					<File Id="rwho.exeFile" Name="rwho.exe" DiskId="1" Source="rwho.exe" Vital="yes" KeyPath="yes" />
+          <File Id="ruptime.exeFile" Name="ruptime.exe" DiskId="1" Source="rwho.exe" Vital="yes" />
+          <File Id="rwho.admFile" Name="rwho.adm" DiskId="1" Source="rwho.adm" />
+					<Environment Id="UpdatePath" Name="PATH" Action="set" System="yes" Part="last" Value="[INSTALLDIR]" />
+				</Component>
 			</Directory>
 		</Directory>
 		<Feature Id="rwhoFeature" Title="Default Install" Level="1">
 			<ComponentRef Id="rwhoComponent" />
 		</Feature>
+	  <Property Id="NEWERPRODUCTFOUND" Secure="yes" />
+		<Property Id="PREVIOUSVERSIONSINSTALLED" Secure="yes" />
 		<Upgrade Id="941AC7A4-03DD-478D-B13D-BD8C734901FC">
-			<UpgradeVersion Minimum="1.4.3" Property="NEWERPRODUCTFOUND" OnlyDetect="yes" IncludeMinimum="yes" />
-			<Property Id="NEWERPRODUCTFOUND" Secure="yes" />
-			<UpgradeVersion Minimum="1.0.0.0" Maximum="1.4.3" Property="PREVIOUSVERSIONSINSTALLED" IncludeMinimum="yes" />
-			<Property Id="PREVIOUSVERSIONSINSTALLED" Secure="yes" />
+			<UpgradeVersion Minimum="1.4.5" Property="NEWERPRODUCTFOUND" OnlyDetect="yes" IncludeMinimum="yes" />
+			<UpgradeVersion Minimum="1.0.0" Maximum="1.4.5" Property="PREVIOUSVERSIONSINSTALLED" IncludeMinimum="yes" />
 		</Upgrade>
 		<CustomAction Id="SetPrereqs" BinaryKey="MSVBDPCADLL" DllEntry="CheckFX" />
 		<CustomAction Id="rwho.exeUninstall.uninstall" BinaryKey="InstallUtil" DllEntry="ManagedInstall"
@@ -48,6 +48,7 @@
 			<Custom Action="rwho.exeRollback.rollback" After="rwho.exeRollback.rollback.SetProperty">$rwhoComponent&gt;2</Custom>
 			<Custom Action="rwho.exeInstall.install.SetProperty" After="rwho.exeRollback.rollback">$rwhoComponent&gt;2</Custom>
 			<Custom Action="rwho.exeInstall.install" After="rwho.exeInstall.install.SetProperty">$rwhoComponent&gt;2</Custom>
+      <RemoveExistingProducts Before="InstallInitialize" />
 		</InstallExecuteSequence>
 	</Product>
 </Wix>

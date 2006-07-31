@@ -1,10 +1,8 @@
 .SILENT:
 rwho.exe: src\rwho.cs src\WTS.cs src\AssemblyInfo.cs src\ProjectInstaller.cs
-	csc /nologo /debug /optimize /win32icon:res\App.ico /unsafe src\rwho.cs src\WTS.cs src\AssemblyInfo.cs src\ProjectInstaller.cs
-!IF "$(FRAMEWORKVERSION)"=="v1.1.4322"
-	signcode -cn "Special Interest Group for Windows Development" rwho.exe
-!ELSE
-	signtool sign /n "Special Interest Group for Windows Development" rwho.exe
+	csc /nologo $(DEBUG) /win32icon:res\App.ico /unsafe src\rwho.cs src\WTS.cs src\AssemblyInfo.cs src\ProjectInstaller.cs
+!IFNDEF DEBUG
+	signtool sign /n "Special Interest Group for Windows Development" /t "http://timestamp.verisign.com/scripts/timestamp.dll" rwho.exe
 !ENDIF
 
 rwhod.exe: rwhod.obj
@@ -16,23 +14,16 @@ rwhod.obj: src\rwhod.c
 rwho.msi: rwho.exe rwho.wxs
 	candle /nologo rwho.wxs
 	light /nologo rwho.wixobj
-!IF "$(FRAMEWORKVERSION)"=="v1.1.4322"
-	signcode -cn "Special Interest Group for Windows Development" rwho.msi
-!ELSE
-	signtool sign /n "Special Interest Group for Windows Development" rwho.msi
+!IFNDEF DEBUG
+	signtool sign /n "Special Interest Group for Windows Development" /t "http://timestamp.verisign.com/scripts/timestamp.dll" rwho.msi
 !ENDIF
 
 all: rwho.exe rwho.msi
-
-dist: rwho.exe rwho.msi
-	copy /y rwho.exe H:\Public
-	copy /y rwho.exe H:\public_html\rwho
-	copy /y rwho.msi H:\public_html\rwho
-	copy /y rwho.msi H:\sigwin\www\wipt
 
 clean:
 	-del rwho.msi
 	-del rwho.exe
 	-del rwhod.exe
 	-del rwhod.obj
+	-del rwho.pdb
 	-del rwho.wixobj
