@@ -662,6 +662,8 @@ You must restart the service after changing these settings for
           for(int x = 0;x < sessions.Length;x++)
           {
             string use = SessionManager.GetSessionUserName(sessions[x].SessionID);
+            if(use == null)
+              continue;
             if(use.Length > 8)
               use = use.Substring(0,8);
             if(sessions[x].SessionID != 65536 && use.Length != 0) // Get rid of listener

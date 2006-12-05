@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2003/01/wi">
 	<Product Id="D0465253-7133-4E4C-98B7-EC190CDBBB7F" UpgradeCode="941AC7A4-03DD-478D-B13D-BD8C734901FC"
-		Name="rwho" Language="1033" Version="1.4.5" Manufacturer="ACM@UIUC">
+		Name="rwho" Language="1033" Version="1.4.6" Manufacturer="ACM@UIUC">
 		<Package Id="????????-????-????-????-????????????" Description="rwho for Windows" Manufacturer="ACM@UIUC"
       InstallerVersion="200" Compressed="yes" />
 		<Binary Id="InstallUtil" SourceFile="InstallUtil\InstallUtil.ibd" />
