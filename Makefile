@@ -26,8 +26,8 @@ rwho.exe: src\rwho.cs src\WTS.cs src\AssemblyInfo.cs src\ProjectInstaller.cs
 #	cl /nologo /c src\rwhod.c
 
 rwho.msi: rwho.exe rwho.wxs
-	candle /nologo rwho.wxs
-	light /nologo rwho.wixobj
+	candle -nologo rwho.wxs
+	light -nologo -ext WixUIExtension -cultures:en-us rwho.wixobj
 !IFDEF NODEBUG
 	signtool sign /n "Special Interest Group for Windows Development" /t "http://timestamp.verisign.com/scripts/timestamp.dll" rwho.msi
 !ENDIF

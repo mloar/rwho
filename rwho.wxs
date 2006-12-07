@@ -1,13 +1,17 @@
 <?xml version="1.0" ?>
-<Wix xmlns="http://schemas.microsoft.com/wix/2003/01/wi">
-	<Product Id="D0465253-7133-4E4C-98B7-EC190CDBBB7F" UpgradeCode="941AC7A4-03DD-478D-B13D-BD8C734901FC"
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+	<Product Id="E5C99FD8-5E5B-45B6-A182-05F42BB3517B" UpgradeCode="941AC7A4-03DD-478D-B13D-BD8C734901FC"
 		Name="rwho" Language="1033" Version="1.4.6" Manufacturer="ACM@UIUC">
-		<Package Id="????????-????-????-????-????????????" Description="rwho for Windows" Manufacturer="ACM@UIUC"
+		<Package Description="rwho for Windows" Manufacturer="ACM@UIUC"
       InstallerVersion="200" Compressed="yes" />
-		<Binary Id="InstallUtil" SourceFile="InstallUtil\InstallUtil.ibd" />
-		<Binary Id="MSVBDPCADLL" SourceFile="InstallUtil\MSVBDPCADLL.ibd" />
-		<Binary Id="VSDNETCFG" SourceFile="InstallUtil\VSDNETCFG.ibd" />
+    <CustomAction Id="ErrNetfx20NotInstalled" Error="[ProductName] requires Microsoft .NET Framework 2.0." />
 		<Media Id="1" Cabinet="Product.cab" EmbedCab="yes" />
+    <UIRef Id="WixUI_InstallDir" />
+    <CustomAction Id="SetTargetDir" Property="TARGETDIR" Value="[ProgramFilesFolder]" />
+    <CustomAction Id="SetInstallUtilPath" Property="INSTALLUTIL" Value="[WindowsFolder]Microsoft.NET\Framework\v2.0.50727\InstallUtil.exe" />
+    <CustomAction Id="InstallUtil" ExeCommand="&quot;[#rwho.exeFile]&quot;" Property="INSTALLUTIL" />
+    <CustomAction Id="UnInstallUtil" ExeCommand="/u &quot;[#rwho.exeFile]&quot;" Property="INSTALLUTIL" Return="ignore" />
+    <WixVariable Id="WixUILicenseRtf" Value="LICENSE.rtf" />
 		<Directory Id="TARGETDIR" Name="SourceDir">
 			<Directory Id="INSTALLDIR" Name="rwho">
 				<Component Id="rwhoComponent" Guid="4EE79C8F-AFE9-D6B7-F9BD-647D69D28148">
@@ -23,32 +27,26 @@
 		</Feature>
 	  <Property Id="NEWERPRODUCTFOUND" Secure="yes" />
 		<Property Id="PREVIOUSVERSIONSINSTALLED" Secure="yes" />
+    <Property Id="INSTALLUTIL" Secure="yes" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" />
 		<Upgrade Id="941AC7A4-03DD-478D-B13D-BD8C734901FC">
-			<UpgradeVersion Minimum="1.4.5" Property="NEWERPRODUCTFOUND" OnlyDetect="yes" IncludeMinimum="yes" />
+			<UpgradeVersion Minimum="1.4.6" Property="NEWERPRODUCTFOUND" OnlyDetect="yes" IncludeMinimum="yes" />
 			<UpgradeVersion Minimum="1.0.0" Maximum="1.4.5" Property="PREVIOUSVERSIONSINSTALLED" IncludeMinimum="yes" />
 		</Upgrade>
-		<CustomAction Id="SetPrereqs" BinaryKey="MSVBDPCADLL" DllEntry="CheckFX" />
-		<CustomAction Id="rwho.exeUninstall.uninstall" BinaryKey="InstallUtil" DllEntry="ManagedInstall"
-			Execute="deferred" />
-		<CustomAction Id="rwho.exeUninstall.uninstall.SetProperty" Property="rwho.exeUninstall.uninstall"
-			Value="/installtype=notransaction /action=uninstall /LogFile= &quot;[#rwho.exeFile]&quot; &quot;[VSDFxConfigFile]&quot;" />
-		<CustomAction Id="rwho.exeInstall.install" BinaryKey="InstallUtil" DllEntry="ManagedInstall"
-			Execute="deferred" />
-		<CustomAction Id="rwho.exeInstall.install.SetProperty" Property="rwho.exeInstall.install"
-			Value="/installtype=notransaction /action=install /LogFile= &quot;[#rwho.exeFile]&quot; &quot;[VSDFxConfigFile]&quot;" />
-		<CustomAction Id="rwho.exeRollback.rollback" BinaryKey="InstallUtil" DllEntry="ManagedInstall"
-			Execute="rollback" />
-		<CustomAction Id="rwho.exeRollback.rollback.SetProperty" Property="rwho.exeRollback.rollback"
-			Value="/installtype=notransaction /action=rollback /LogFile= &quot;[#rwho.exeFile]&quot; &quot;[VSDFxConfigFile]&quot;" />
 		<InstallExecuteSequence>
-			<Custom Action="SetPrereqs" Before="AppSearch" />
-			<Custom Action="rwho.exeUninstall.uninstall.SetProperty" After="MsiUnpublishAssemblies">$rwhoComponent=2</Custom>
-			<Custom Action="rwho.exeUninstall.uninstall" After="rwho.exeUninstall.uninstall.SetProperty">$rwhoComponent=2</Custom>
-			<Custom Action="rwho.exeRollback.rollback.SetProperty" After="StartServices">$rwhoComponent&gt;2</Custom>
-			<Custom Action="rwho.exeRollback.rollback" After="rwho.exeRollback.rollback.SetProperty">$rwhoComponent&gt;2</Custom>
-			<Custom Action="rwho.exeInstall.install.SetProperty" After="rwho.exeRollback.rollback">$rwhoComponent&gt;2</Custom>
-			<Custom Action="rwho.exeInstall.install" After="rwho.exeInstall.install.SetProperty">$rwhoComponent&gt;2</Custom>
+      <Custom Action="ErrNetfx20NotInstalled" Before="CostInitialize">NOT NETFX20INSTALLED AND NOT Installed</Custom>
+      <Custom Action="SetTargetDir" Before="CostFinalize">NOT REMOVE AND NOT RESUME AND NOT TARGETDIR</Custom>
+      <Custom Action="SetInstallUtilPath" Before="CostFinalize">NOT INSTALLUTIL</Custom>
       <RemoveExistingProducts Before="InstallInitialize" />
+      <InstallExecute After="InstallFiles" />
+      <Custom Action="InstallUtil" After="StartServices">$rwhoComponent&gt;2</Custom>
+      <Custom Action="UnInstallUtil" After="MsiUnpublishAssemblies">$rwhoComponent=2</Custom>
 		</InstallExecuteSequence>
+    <InstallUISequence>
+      <Custom Action="SetTargetDir" Before="CostFinalize">NOT REMOVE AND NOT RESUME AND NOT TARGETDIR</Custom>
+    </InstallUISequence>
+    <Property Id="NETFX20INSTALLED" Secure="yes">
+      <RegistrySearch Id="Netfx20InstallRegKey" Root="HKLM" Key="SOFTWARE\Microsoft\NET Framework Setup\NDP\v2.0.50727" Name="Install" Type="raw" /> 
+    </Property>
 	</Product>
 </Wix>

@@ -494,7 +494,7 @@ You must restart the service after changing these settings for
         }
       
 
-        pc = new PerformanceCounter("Processor","% Processor Time","_Total");
+        pc = new PerformanceCounter("Process","% Processor Time","_Total");
         perfData = Queue.Synchronized(new Queue());
 
         enc = new ASCIIEncoding();
