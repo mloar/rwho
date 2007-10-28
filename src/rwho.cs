@@ -1,33 +1,41 @@
 /*
- *  Copyright (c) 2005-2006 Association for Computing Machinery at the University of Illinois at Urbana-Champaign.
+ *  Copyright (c) 2006 Association for Computing Machinery at the
+ *  University of Illinois at Urbana-Champaign.
  *  All rights reserved.
- * 
- *  Developed by:     Matthew Loar
- *            ACM@UIUC
- *            http://www.acm.uiuc.edu
  *
- *  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
- *  documentation files (the "Software"), to deal with the Software without restriction, including without limitation 
- *  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
- *  permit persons to whom the Software is furnished to do so, subject to the following conditions:
+ *  Developed by: Special Interest Group for Windows Development
+ *                ACM@UIUC
+ *                http://www.acm.uiuc.edu/sigwin
  *
- *  * Redistributions of source code must retain the above copyright notice, this list of conditions and the following 
- *    disclaimers.
- *  * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the 
- *    following disclaimers in the documentation and/or other materials provided with the distribution.
- *  * Neither the names of Matthew Loar, ACM@UIUC, nor the names of its contributors may be used to endorse or promote 
- *    products derived from this Software without specific prior written permission. 
+ *  Permission is hereby granted, free of charge, to any person obtaining a
+ *  copy of this software and associated documentation files (the "Software"),
+ *  to deal with the Software without restriction, including without limitation
+ *  the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ *  and/or sell copies of the Software, and to permit persons to whom the
+ *  Software is furnished to do so, subject to the following conditions:
  *
- *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO 
- *  THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
- *  CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF 
- *  CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS 
- *  WITH THE SOFTWARE.
+ *  Redistributions of source code must retain the above copyright notice, this
+ *  list of conditions and the following disclaimers.
+ *  Redistributions in binary form must reproduce the above copyright notice,
+ *  this list of conditions and the following disclaimers in the documentation
+ *  and/or other materials provided with the distribution.
+ *  Neither the names of SIGWin, ACM@UIUC, nor the names of its contributors
+ *  may be used to endorse or promote products derived from this Software
+ *  without specific prior written permission.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ *  DEALINGS WITH THE SOFTWARE.
  */
 using System;
 using System.Collections;
 using System.Diagnostics;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.ServiceProcess;
@@ -46,11 +54,11 @@ namespace ACM.rwho
     const string RUPTIME_USAGE = @"
 Usage: ruptime [/alrut]
   /a  Include long-idle users in user counts
-    
+
   /l  Sort by load averages
   /t  Sort by uptime
   /u  Sort by user count
-    
+
   /r  Reverse sort order
   ";
 
@@ -67,9 +75,12 @@ You can set a prefix to be trimmed from the outgoing hostname
 You can set HKEY_LOCAL_MACHINE\\Software\\ACM\\rwho\\ForceCase
  (DWORD value) to 1 or 2 to force the outgoing hostname to lower
  or upper case, respectively.
-    
+
 You can set HKEY_LOCAL_MACHINE\\Software\\ACM\\rwho\\DisableSend
  (DWORD value) to 1 to run rwho in client-only mode.
+
+You can set HKEY_LOCAL_MACHINE\\Software\\ACM\\rwho\\Relay
+ (DWORD value) to 1 to have the daemon relay between networks.
 
 You must restart the service after changing these settings for
  them to take effect.
@@ -81,7 +92,7 @@ You must restart the service after changing these settings for
       public byte[] out_name = new byte[8];
       public int out_time;
     }
-    
+
     [StructLayout(LayoutKind.Sequential)]
     class whod
     {
@@ -100,26 +111,28 @@ You must restart the service after changing these settings for
       }
       public whoent[] wd_we = new whoent[64];
     }
-    
+
     Socket sock;
     Timer timSend;
     byte[] buffer;
+    EndPoint endpoint;
 
     Timer timPerf;
     PerformanceCounter pc;
     Queue perfData;
 
     ASCIIEncoding enc;
-    
+
     XmlDocument cache;
     XmlTextWriter writer;
-    
+
     bool initialized;
     bool exit;
 
     string prefix;
     int forcecase;
     bool disablesend;
+    bool relay;
 
     // The main entry point for the process
     [STAThread]
@@ -133,7 +146,7 @@ You must restart the service after changing these settings for
           Console.Write(RUPTIME_USAGE);
           return;
         }
-        
+
         bool all = false;
         string sort = "f";
         foreach(string arg in args)
@@ -167,9 +180,10 @@ You must restart the service after changing these settings for
           XmlDocument cache = new XmlDocument();
           string path = System.Environment.SystemDirectory;
           path = path.Remove(path.LastIndexOf('\\'),path.Length-path.LastIndexOf('\\'));
-          System.IO.FileStream st = new System.IO.FileStream(path + "\\TEMP\\rwhocache.xml",System.IO.FileMode.Open,System.IO.FileAccess.Read,System.IO.FileShare.ReadWrite);
+          System.IO.FileStream st = new System.IO.FileStream(path + "\\TEMP\\rwhocache.xml",System.IO.FileMode.Open,
+              System.IO.FileAccess.Read,System.IO.FileShare.ReadWrite);
           XmlTextReader reader = new XmlTextReader(st);
-        
+
           cache.Load(reader);
 
           int i = 0;
@@ -183,7 +197,8 @@ You must restart the service after changing these settings for
               int uptime = int.Parse(node.GetAttribute("uptime"));
               TimeSpan ts = new TimeSpan(((long)(timestamp - uptime)) * TimeSpan.TicksPerSecond);
 
-              lines[i] = node.GetAttribute("hostname").PadRight(12) + "  up" + string.Format("{0}+{1:00}:{2:00}",ts.Days,ts.Hours,ts.Minutes).PadLeft(12);
+              lines[i] = node.GetAttribute("hostname").PadRight(12) + "  up" + string.Format("{0}+{1:00}:{2:00}",
+                  ts.Days,ts.Hours,ts.Minutes).PadLeft(12);
 
               int j = 0;
               int users = 0;
@@ -196,10 +211,14 @@ You must restart the service after changing these settings for
                 j++;
               }
               lines[i] += ",\t" + (users.ToString() + " users, ").PadRight(10);
-              lines[i] +=  string.Format("load {0:0.00}, {1:0.00}, {2:0.00}",double.Parse(node.GetAttribute("loadav0"))/100,double.Parse(node.GetAttribute("loadav1"))/100,double.Parse(node.GetAttribute("loadav2"))/100);
+              lines[i] +=  string.Format("load {0:0.00}, {1:0.00}, {2:0.00}",
+                  double.Parse(node.GetAttribute("loadav0"))/100,double.Parse(node.GetAttribute("loadav1"))/100,
+                  double.Parse(node.GetAttribute("loadav2"))/100);
 
               if(sort[1] == 'l')
-                keys[i] = string.Format("load {0:0.00}, {1:0.00}, {2:0.00}",double.Parse(node.GetAttribute("loadav0"))/100,double.Parse(node.GetAttribute("loadav1"))/100,double.Parse(node.GetAttribute("loadav2"))/100);
+                keys[i] = string.Format("load {0:0.00}, {1:0.00}, {2:0.00}",
+                    double.Parse(node.GetAttribute("loadav0"))/100,double.Parse(node.GetAttribute("loadav1"))/100,
+                    double.Parse(node.GetAttribute("loadav2"))/100);
               else if(sort[1] == 'u')
                 keys[i] = users.ToString();
               else if(sort[1] == 't')
@@ -211,8 +230,10 @@ You must restart the service after changing these settings for
             }
             else if(downtime < 4 * 24 * 60 * 60)
             {
-              TimeSpan ts = new TimeSpan((timestamp - int.Parse(node.GetAttribute("recvtime"))) * TimeSpan.TicksPerSecond);
-              lines[i] = node.GetAttribute("hostname").PadRight(12) + "down" + string.Format("{0}+{1:00}:{2:00}",ts.Days,ts.Hours,ts.Minutes).PadLeft(12);
+              TimeSpan ts = new TimeSpan(
+                  (timestamp - int.Parse(node.GetAttribute("recvtime"))) * TimeSpan.TicksPerSecond);
+              lines[i] = node.GetAttribute("hostname").PadRight(12) + "down" + string.Format("{0}+{1:00}:{2:00}",
+                  ts.Days,ts.Hours,ts.Minutes).PadLeft(12);
 
               if(sort[1] == 'l')
                 keys[i] = string.Format("load {0:0.00}, {1:0.00}, {2:0.00}",-1L,-1L,-1L);
@@ -254,13 +275,15 @@ You must restart the service after changing these settings for
         }
 
         return;
-      }                
-      if(args.Length > 0 && (args[0] == "service" || args[0] == "install" || args[0] == "uninstall" || args[0] == "isdrivingcar"))
+      }
+      if(args.Length > 0 && (args[0] == "service" || args[0] == "install" || args[0] == "uninstall"
+            || args[0] == "isdrivingcar"))
       {
         string loc = rd.GetType().Assembly.Location;
         string maxver = "";
-        
-        foreach(string dir in System.IO.Directory.GetDirectories(System.Environment.SystemDirectory.Replace("\\system32","") + "\\Microsoft.NET\\Framework","v?.?.?????"))
+
+        foreach(string dir in System.IO.Directory.GetDirectories(
+              System.Environment.SystemDirectory.Replace("\\system32","") + "\\Microsoft.NET\\Framework","v?.?.?????"))
         {
           if(maxver.Length == 0 || (maxver.CompareTo(dir) < 0))
             maxver = dir;
@@ -279,7 +302,8 @@ You must restart the service after changing these settings for
             proc.WaitForExit();
             if(proc.ExitCode != 0)
             {
-              Console.WriteLine(string.Format("InstallUtil returned an error code:{0}  The installation may have failed.",proc.ExitCode));
+              Console.WriteLine(string.Format(
+                    "InstallUtil returned an error code:{0}  The installation may have failed.",proc.ExitCode));
               Console.WriteLine("Do you have administrative privileges?");
             }
             proc.Close();
@@ -293,7 +317,8 @@ You must restart the service after changing these settings for
             proc.WaitForExit();
             if(proc.ExitCode != 0)
             {
-              Console.WriteLine(string.Format("InstallUtil returned an error code:{0}  The uninstallation may have failed.",proc.ExitCode));
+              Console.WriteLine(string.Format(
+                    "InstallUtil returned an error code:{0}  The uninstallation may have failed.",proc.ExitCode));
               Console.WriteLine("Do you have administrative privileges?");
             }
             proc.Close();
@@ -326,7 +351,6 @@ You must restart the service after changing these settings for
           }
         }
 
-        
         int timestamp = (int)((DateTime.UtcNow.Ticks - UNIX_ZERO_TICKS)/TimeSpan.TicksPerSecond);
 
         try
@@ -334,7 +358,8 @@ You must restart the service after changing these settings for
           XmlDocument cache = new XmlDocument();
           string path = System.Environment.SystemDirectory;
           path = path.Remove(path.LastIndexOf('\\'),path.Length-path.LastIndexOf('\\'));
-          System.IO.FileStream st = new System.IO.FileStream(path + "\\TEMP\\rwhocache.xml",System.IO.FileMode.Open,System.IO.FileAccess.Read,System.IO.FileShare.ReadWrite);
+          System.IO.FileStream st = new System.IO.FileStream(path + "\\TEMP\\rwhocache.xml",System.IO.FileMode.Open,
+              System.IO.FileAccess.Read,System.IO.FileShare.ReadWrite);
           XmlTextReader reader = new XmlTextReader(st);
           cache.Load(reader);
 
@@ -350,12 +375,19 @@ You must restart the service after changing these settings for
               {
                 TimeSpan idle = new TimeSpan(Int64.Parse(user.GetAttribute("idle")) * 10000000);
                 if(all || (idle.Ticks > 0 && idle.Ticks < 36000000000))
-                  lines[i] = String.Format("{0}\t{1}\t{2}\t{3}",user.GetAttribute("name").PadRight(8),(node.GetAttribute("hostname") + ":"+ user.GetAttribute("line")).PadRight(16),new DateTime(Int64.Parse(user.GetAttribute("time")) * 10000000 + UNIX_ZERO_TICKS).ToLocalTime().ToString("MMM dd HH:mm"), (idle.Ticks>0)?String.Format("{0:00}:{1:00}",Math.Floor(idle.TotalHours),idle.Minutes):"");
+                  lines[i] = String.Format("{0}\t{1}\t{2}\t{3}",user.GetAttribute("name").PadRight(8),
+                      (node.GetAttribute("hostname") + ":"+ user.GetAttribute("line")).PadRight(16),
+                      new DateTime(Int64.Parse(user.GetAttribute("time"))
+                        * 10000000 + UNIX_ZERO_TICKS).ToLocalTime().ToString("MMM dd HH:mm"),
+                      (idle.Ticks>0)?String.Format("{0:00}:{1:00}",Math.Floor(idle.TotalHours),idle.Minutes):"");
                 else if(Int64.Parse(user.GetAttribute("idle")) == 0)
-                  lines[i] = String.Format("{0}\t{1}\t{2}",user.GetAttribute("name").PadRight(8),(node.GetAttribute("hostname") + ":"+ user.GetAttribute("line")).PadRight(16),new DateTime(Int64.Parse(user.GetAttribute("time")) * 10000000 + UNIX_ZERO_TICKS).ToLocalTime().ToString("MMM dd HH:mm"));
+                  lines[i] = String.Format("{0}\t{1}\t{2}",user.GetAttribute("name").PadRight(8),
+                      (node.GetAttribute("hostname") + ":"+ user.GetAttribute("line")).PadRight(16),
+                      new DateTime(Int64.Parse(user.GetAttribute("time"))
+                        * 10000000 + UNIX_ZERO_TICKS).ToLocalTime().ToString("MMM dd HH:mm"));
                 i++;
               }
-              
+
               string[] temp = new string[lines.Length + alllines.Length];
               Array.Copy(alllines,0,temp,0,alllines.Length);
               Array.Copy(lines,0,temp,alllines.Length,lines.Length);
@@ -399,13 +431,15 @@ You must restart the service after changing these settings for
         initialized = false;
         exit = false;
 
+        endpoint = new IPEndPoint(IPAddress.Any, 0);
+
         sock = new Socket(AddressFamily.InterNetwork,SocketType.Dgram,ProtocolType.Udp);
         sock.Bind(new IPEndPoint(IPAddress.Any,513));
         sock.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
-        
+
         buffer = new byte[1024];
-        sock.BeginReceive(buffer,0,buffer.Length,SocketFlags.None,new AsyncCallback(RecvData),null);
-        
+        sock.BeginReceiveFrom(buffer,0,buffer.Length,SocketFlags.None,ref endpoint,new AsyncCallback(RecvData),null);
+
         Thread t = new Thread(new ThreadStart(Initialize));
         t.Start();
       }
@@ -414,7 +448,7 @@ You must restart the service after changing these settings for
         EventLog.WriteEntry("rwhod",ex.Message + ex.StackTrace,EventLogEntryType.Error);
       }
     }
- 
+
     /// <summary>
     /// Stop this service.
     /// </summary>
@@ -443,9 +477,15 @@ You must restart the service after changing these settings for
 
         string path = System.Environment.SystemDirectory;
         path = path.Remove(path.LastIndexOf('\\'),path.Length-path.LastIndexOf('\\'));
-        System.IO.FileStream st = new System.IO.FileStream(path + "\\TEMP\\rwhocache.xml",System.IO.FileMode.OpenOrCreate,System.IO.FileAccess.Write,System.IO.FileShare.Read);
+        System.IO.FileStream st = new System.IO.FileStream(path + "\\TEMP\\rwhocache.xml",
+            System.IO.FileMode.OpenOrCreate,System.IO.FileAccess.Write,System.IO.FileShare.Read);
         writer = new XmlTextWriter(st,Encoding.ASCII);
-          
+
+        prefix = "";
+        forcecase = 0;
+        disablesend = false;
+        relay = false;
+
         RegistryKey rk = Registry.LocalMachine.OpenSubKey("SOFTWARE\\ACM\\rwho");
         if(rk != null)
         {
@@ -453,8 +493,8 @@ You must restart the service after changing these settings for
           obj = rk.GetValue("Prefix","");
           if(obj.GetType().ToString() != "System.String")
           {
-            EventLog.WriteEntry("rwhod","Registry value 'Prefix' is not REG_SZ - ignored.",EventLogEntryType.Warning);
-            prefix = "";
+            EventLog.WriteEntry("rwhod","Registry value 'Prefix' is not REG_SZ - ignored.",
+                EventLogEntryType.Warning);
           }
           else
           {
@@ -464,8 +504,8 @@ You must restart the service after changing these settings for
           obj = rk.GetValue("ForceCase",0);
           if(obj.GetType().ToString() != "System.Int32")
           {
-            EventLog.WriteEntry("rwhod","Registry value 'ForceCase' is not REG_DWORD - ignored.",EventLogEntryType.Warning);
-            forcecase = 0;
+            EventLog.WriteEntry("rwhod","Registry value 'ForceCase' is not REG_DWORD - ignored.",
+                EventLogEntryType.Warning);
           }
           else
           {
@@ -475,30 +515,85 @@ You must restart the service after changing these settings for
           obj = rk.GetValue("DisableSend",0);
           if(obj.GetType().ToString() != "System.Int32")
           {
-            EventLog.WriteEntry("rwhod","Registry value 'DisableSend' is not REG_DWORD - ignored.",EventLogEntryType.Warning);
-            disablesend = false;
+            EventLog.WriteEntry("rwhod","Registry value 'DisableSend' is not REG_DWORD - ignored.",
+                EventLogEntryType.Warning);
           }
           else
           {
             disablesend = (int)obj != 0;
           }
 
-          rk.Close();
-          
-        }
-        else
-        {
-          prefix = "";
-          forcecase = 0;
-          disablesend = false;
-        }
-      
+          obj = rk.GetValue("Relay",0);
+          if(obj.GetType().ToString() != "System.Int32")
+          {
+            EventLog.WriteEntry("rwhod","Registry value 'Relay' is not REG_DWORD - ignored.",
+                EventLogEntryType.Warning);
+          }
+          else
+          {
+            relay = (int)obj != 0;
+          }
 
-        pc = new PerformanceCounter("Process","% Processor Time","_Total");
+          rk.Close();
+        }
+
+        rk = Registry.LocalMachine.OpenSubKey("SOFTWARE\\Policies\\ACM\\rwho");
+        if(rk != null)
+        {
+          object obj;
+          obj = rk.GetValue("Prefix", prefix);
+          if(obj.GetType().ToString() != "System.String")
+          {
+            EventLog.WriteEntry("rwhod","Policy value 'Prefix' is not REG_SZ - ignored.",
+                EventLogEntryType.Warning);
+          }
+          else
+          {
+            prefix = (string)obj;
+          }
+
+          obj = rk.GetValue("ForceCase", forcecase);
+          if(obj.GetType().ToString() != "System.Int32")
+          {
+            EventLog.WriteEntry("rwhod","Policy value 'ForceCase' is not REG_DWORD - ignored.",
+                EventLogEntryType.Warning);
+          }
+          else
+          {
+            forcecase = (int)obj;
+          }
+
+          obj = rk.GetValue("DisableSend", disablesend ? 1 : 0);
+          if(obj.GetType().ToString() != "System.Int32")
+          {
+            EventLog.WriteEntry("rwhod","Policy value 'DisableSend' is not REG_DWORD - ignored.",
+                EventLogEntryType.Warning);
+          }
+          else
+          {
+            disablesend = (int)obj != 0;
+          }
+
+          obj = rk.GetValue("Relay", relay ? 1 : 0);
+          if(obj.GetType().ToString() != "System.Int32")
+          {
+            EventLog.WriteEntry("rwhod","Policy value 'Relay' is not REG_DWORD - ignored.",
+                EventLogEntryType.Warning);
+          }
+          else
+          {
+            relay = (int)obj != 0;
+          }
+
+          rk.Close();
+        }
+
+
+        pc = new PerformanceCounter("Processor","% Processor Time","_Total");
         perfData = Queue.Synchronized(new Queue());
 
         enc = new ASCIIEncoding();
-      
+
         whod d = new whod();
         if(!disablesend)
         {
@@ -516,35 +611,75 @@ You must restart the service after changing these settings for
 
     void RecvData(IAsyncResult ar)
     {
+      bool relaythis = false;
       if(initialized)
       {
         try
         {
           int timestamp = (int)((DateTime.UtcNow.Ticks - UNIX_ZERO_TICKS)/TimeSpan.TicksPerSecond);
-          int bytes = sock.EndReceive(ar);
+          int bytes = sock.EndReceiveFrom(ar, ref endpoint);
 
           if(bytes < 60)
             EventLog.WriteEntry("rwhod","Malformed packet received.",EventLogEntryType.Warning);
           else
           {
+            if(relay && !(buffer[2] == 'R' && buffer[3] == 'E'))
+            {
+              /*bool bail = false;
+
+              foreach(NetworkInterface adapter in NetworkInterface.GetAllNetworkInterfaces())
+              {
+                foreach(UnicastIPAddressInformation uni in adapter.GetIPProperties().UnicastAddresses)
+                {
+                  if(uni.Address == ((IPEndPoint)endpoint).Address)
+                  {
+                    bail = true;
+                  }
+                }
+              }
+
+              if(!bail)
+              {*/
+              //}
+            }
+
             byte[] hostname = new byte[32];
             Array.Copy(buffer,12,hostname,0,32);
 
-            XmlElement node = (XmlElement)cache.FirstChild.SelectSingleNode("descendant::host[attribute::hostname='" + enc.GetString(hostname).Split('\0')[0] + "']");
+            XmlElement node = (XmlElement)cache.FirstChild.SelectSingleNode("descendant::host[attribute::hostname='"
+                + enc.GetString(hostname).Split('\0')[0] + "']");
             if(node == null)
             {
+              relaythis = relay && true;
               node = cache.CreateElement("host");
               cache.FirstChild.AppendChild(node);
             }
+            else if(relay && node.GetAttribute("sendtime") != string.Format("{0}",(int)IPAddress.NetworkToHostOrder(
+                    BitConverter.ToInt32(buffer,4))))
+            {
+              relaythis = true;
+            }
             node.RemoveAll();
 
+            if(relaythis && !(buffer[2] == 'R' && buffer[3] == 'E'))
+            {
+              buffer[2] = (byte)'R';
+              buffer[3] = (byte)'E';
+              sock.SendTo(buffer, bytes, SocketFlags.None, new IPEndPoint(IPAddress.Broadcast, 513));
+            }
+
             node.SetAttribute("hostname",enc.GetString(hostname).Split('\0')[0]);
-            node.SetAttribute("uptime",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,56))));
-            node.SetAttribute("sendtime",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,4))));
+            node.SetAttribute("uptime",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(
+                    BitConverter.ToInt32(buffer,56))));
+            node.SetAttribute("sendtime",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(
+                    BitConverter.ToInt32(buffer,4))));
             node.SetAttribute("recvtime",string.Format("{0}",(int)timestamp));
-            node.SetAttribute("loadav0",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,44))));
-            node.SetAttribute("loadav1",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,48))));
-            node.SetAttribute("loadav2",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,52))));
+            node.SetAttribute("loadav0",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(
+                    BitConverter.ToInt32(buffer,44))));
+            node.SetAttribute("loadav1",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(
+                    BitConverter.ToInt32(buffer,48))));
+            node.SetAttribute("loadav2",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(
+                    BitConverter.ToInt32(buffer,52))));
 
             // Declare these up here to avoid allocating memory in every loop iteration
             byte[] line = new byte[8];
@@ -562,8 +697,10 @@ You must restart the service after changing these settings for
 
                 usernode.SetAttribute("name",enc.GetString(name).Split('\0')[0]);
                 usernode.SetAttribute("line",enc.GetString(line).Split('\0')[0]);
-                usernode.SetAttribute("time",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,i+16))));
-                usernode.SetAttribute("idle",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer,i+20))));
+                usernode.SetAttribute("time",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(
+                        BitConverter.ToInt32(buffer,i+16))));
+                usernode.SetAttribute("idle",string.Format("{0}",(int)IPAddress.NetworkToHostOrder(
+                        BitConverter.ToInt32(buffer,i+20))));
               }
             }
 
@@ -588,14 +725,14 @@ You must restart the service after changing these settings for
           return;
         }
       }
-      sock.BeginReceive(buffer,0,buffer.Length,SocketFlags.None,new AsyncCallback(RecvData),ar.AsyncState);
+      sock.BeginReceiveFrom(buffer,0,buffer.Length,SocketFlags.None,ref endpoint,new AsyncCallback(RecvData),ar.AsyncState);
     }
     void SendData(object state)
     {
       if(!initialized)
         return;
       try
-      {     
+      {
         int timestamp = (int)((DateTime.UtcNow.Ticks - UNIX_ZERO_TICKS)/TimeSpan.TicksPerSecond);
 
         whod d = (whod)state;
@@ -608,7 +745,9 @@ You must restart the service after changing these settings for
          * Stupid, isn't it?  I wasted so much time looking for overflows in my code,
          * and it turns out not to be my code at all.  Lousy MS.  They're why I don't get any sleep.
          */
-        d.wd_boottime = (int)((uint)timestamp - (System.Environment.TickCount>0?(uint)System.Environment.TickCount:(uint)int.MaxValue+(uint)(System.Environment.TickCount-int.MinValue)) / 1000);
+        d.wd_boottime = (int)((uint)timestamp - (System.Environment.TickCount > 0 ?
+              (uint)System.Environment.TickCount :
+              (uint)int.MaxValue+(uint)(System.Environment.TickCount-int.MinValue)) / 1000);
 
         d.wd_hostname = new byte[32];
         string hostname = System.Environment.MachineName;
@@ -620,7 +759,7 @@ You must restart the service after changing these settings for
           hostname = hostname.ToUpper();
 
         Array.Copy(enc.GetBytes(hostname),0,d.wd_hostname,0,enc.GetByteCount(hostname));
-        
+
         d.wd_sendtime = (int)timestamp;
         d.wd_vers = 1;
         d.wd_type = 1;
@@ -653,12 +792,12 @@ You must restart the service after changing these settings for
             }
           }
         }
-        
+
         int k=0; // User number in buffer
-        
+
         SessionInfo[] sessions = SessionManager.EnumerateSessions();
         if(sessions.Length > 0)
-        { 
+        {
           for(int x = 0;x < sessions.Length;x++)
           {
             string use = SessionManager.GetSessionUserName(sessions[x].SessionID);
@@ -669,20 +808,15 @@ You must restart the service after changing these settings for
             if(sessions[x].SessionID != 65536 && use.Length != 0) // Get rid of listener
             {
               d.wd_we[k] = new whod.whoent();
-                            
+
               string cli;
               double tim=0;
-              if(!SessionManager.IsSessionConnected(sessions[x].SessionID))
-              {
-                cli = "not on";
-              }
+              if(sessions[x].SessionID == SessionManager.GetActiveConsoleSessionID())
+                cli = "console";
+              else if(SessionManager.IsSessionConnected(sessions[x].SessionID))
+                cli = string.Format("rdp/{0}", sessions[x].SessionID);
               else
-              {             
-                if(sessions[x].SessionID == SessionManager.GetActiveConsoleSessionID())
-                  cli = "console";
-                else
-                  cli = string.Format("rdp/{0}",sessions[x].SessionID);
-              }
+                cli = string.Format("rdp/{0}D", sessions[x].SessionID);
               DateTime logtime = DateTime.FromFileTimeUtc(SessionManager.GetSessionLogonTime(sessions[x].SessionID));
               tim = (logtime.Ticks - UNIX_ZERO_TICKS)/TimeSpan.TicksPerSecond;
 
@@ -695,10 +829,10 @@ You must restart the service after changing these settings for
         }
 
         byte[] buffy = new byte[60 + k * 24];
-              
+
         buffy[0] = d.wd_vers;
         buffy[1] = d.wd_type;
-        
+
         Array.Copy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((int)d.wd_sendtime)),0,buffy,4,4);
         Array.Copy(d.wd_hostname,0,buffy,12,32);
         Array.Copy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((int)d.wd_boottime)),0,buffy,56,4);
@@ -716,9 +850,10 @@ You must restart the service after changing these settings for
             Array.Copy(d.wd_we[j].we_utmp.out_line,0,buffy,i,8);
             Array.Copy(d.wd_we[j].we_utmp.out_name,0,buffy,i+8,8);
 
-            Array.Copy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((int)d.wd_we[j].we_utmp.out_time)),0,buffy,i+16,4);
+            Array.Copy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((int)d.wd_we[j].we_utmp.out_time)),
+                0, buffy, i+16, 4);
             Array.Copy(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((int)d.wd_we[j].we_idle)),0,buffy,i+20,4);
-            
+
             i+=24;
           }
         }
@@ -729,7 +864,7 @@ You must restart the service after changing these settings for
       }
       catch(SocketException e)
       {
-        EventLog.WriteEntry("rwhod", string.Format("Encountered socket error %d %s", e.ErrorCode, e.StackTrace), 
+        EventLog.WriteEntry("rwhod", string.Format("Encountered socket error %d %s", e.ErrorCode, e.StackTrace),
               EventLogEntryType.Error);
       }
       catch(Exception e)
@@ -745,7 +880,7 @@ You must restart the service after changing these settings for
         return;
       if(perfData.Count >= 60)
         perfData.Dequeue();
-      perfData.Enqueue(pc.NextValue());
+      perfData.Enqueue(100 - pc.NextValue());
     }
   }
 }

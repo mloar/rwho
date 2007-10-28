@@ -1,18 +1,35 @@
 /*
- *	Copyright (c) 2005 Association for Computing Machinery at the University of Illinois at Urbana-Champaign.
+ *  Copyright (c) 2006 Association for Computing Machinery at the 
+ *  University of Illinois at Urbana-Champaign.
  *  All rights reserved.
  * 
- *	Developed by: 		Matthew Loar
- *						ACM@UIUC
- *						http://www.acm.uiuc.edu
+ *  Developed by: Special Interest Group for Windows Development
+ *                ACM@UIUC
+ *                http://www.acm.uiuc.edu/sigwin
  *
- *	Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal with the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+ *  Permission is hereby granted, free of charge, to any person obtaining a 
+ *  copy of this software and associated documentation files (the "Software"),
+ *  to deal with the Software without restriction, including without limitation
+ *  the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ *  and/or sell copies of the Software, and to permit persons to whom the
+ *  Software is furnished to do so, subject to the following conditions:
  *
- *	* Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimers.
- *	* Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimers in the documentation and/or other materials provided with the distribution.
- *	* Neither the names of Matthew Loar, ACM@UIUC, nor the names of its contributors may be used to endorse or promote products derived from this Software without specific prior written permission. 
+ *  Redistributions of source code must retain the above copyright notice, this
+ *  list of conditions and the following disclaimers.
+ *  Redistributions in binary form must reproduce the above copyright notice,
+ *  this list of conditions and the following disclaimers in the documentation
+ *  and/or other materials provided with the distribution.
+ *  Neither the names of SIGWin, ACM@UIUC, nor the names of its contributors
+ *  may be used to endorse or promote products derived from this Software
+ *  without specific prior written permission. 
  *
- *	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS WITH THE SOFTWARE.
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ *  DEALINGS WITH THE SOFTWARE.
  */
 
 using System;
@@ -28,7 +45,7 @@ namespace ACM.Sys.Windows.TerminalServices
 	}
 
 	/// <summary>
-	/// Summary description for WTS.
+	/// Provides an interface to the Windows Terminal Services API.
 	/// </summary>
 	public unsafe class SessionManager
 	{
@@ -54,6 +71,16 @@ namespace ACM.Sys.Windows.TerminalServices
 			out byte* ppBuffer,
 			Int32* pBytesReturned
 			);
+
+    [DllImport("winsta.dll", CallingConvention=CallingConvention.StdCall)]
+    private static extern int WinStationQueryInformationW(
+      IntPtr hServer,
+      Int32 LogonId,
+      Int32 WinStationInformationClass,
+      IntPtr pWinStationInformation,
+      Int32 WinStationInformationLength,
+      Int32* pReturnLength
+      );
 
 		[DllImport("kernel32.dll", CallingConvention=CallingConvention.StdCall)]
 		private static extern int WTSGetActiveConsoleSessionId();
@@ -120,6 +147,21 @@ namespace ACM.Sys.Windows.TerminalServices
 			WTSFreeMemory((IntPtr)user);
 
 			return ret;
+		}
+
+		public static int GetSessionIdleTime(int SessionID)
+		{
+      byte[] info = new byte[1164];
+      GCHandle gch = GCHandle.Alloc(info, GCHandleType.Pinned);
+      IntPtr buffer = gch.AddrOfPinnedObject();
+      Int32 len;
+
+			WinStationQueryInformationW(IntPtr.Zero, SessionID, 8 /* WinStationInformation */,
+          buffer, 1164, &len);
+
+      gch.Free();
+
+			return 0;
 		}
 
 		public static bool IsSessionConnected(int SessionID)

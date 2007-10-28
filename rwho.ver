@@ -1,0 +1,7 @@
+VersionMajor=1
+VersionMinor=4
+VersionBuild=9
+
+ProductVersion=$(VersionMajor).$(VersionMinor).$(VersionBuild)
+AssemblyVersion=$(ProductVersion).*
+FileVersion=$(VersionMajor),$(VersionMinor),$(VersionBuild),0

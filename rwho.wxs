@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-	<Product Id="E5C99FD8-5E5B-45B6-A182-05F42BB3517B" UpgradeCode="941AC7A4-03DD-478D-B13D-BD8C734901FC"
-		Name="rwho" Language="1033" Version="1.4.6" Manufacturer="ACM@UIUC">
+	<Product Id="E83E0F3F-902F-4FEA-A846-76109D756EF3" UpgradeCode="941AC7A4-03DD-478D-B13D-BD8C734901FC"
+		Name="rwho" Language="1033" Version="$(var.ProductVersion)" Manufacturer="ACM@UIUC">
 		<Package Description="rwho for Windows" Manufacturer="ACM@UIUC"
       InstallerVersion="200" Compressed="yes" />
     <CustomAction Id="ErrNetfx20NotInstalled" Error="[ProductName] requires Microsoft .NET Framework 2.0." />
@@ -30,8 +30,8 @@
     <Property Id="INSTALLUTIL" Secure="yes" />
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" />
 		<Upgrade Id="941AC7A4-03DD-478D-B13D-BD8C734901FC">
-			<UpgradeVersion Minimum="1.4.6" Property="NEWERPRODUCTFOUND" OnlyDetect="yes" IncludeMinimum="yes" />
-			<UpgradeVersion Minimum="1.0.0" Maximum="1.4.5" Property="PREVIOUSVERSIONSINSTALLED" IncludeMinimum="yes" />
+			<UpgradeVersion Minimum="$(var.ProductVersion)" Property="NEWERPRODUCTFOUND" OnlyDetect="yes" IncludeMinimum="yes" />
+			<UpgradeVersion Minimum="1.0.0" Maximum="$(var.ProductVersion)" Property="PREVIOUSVERSIONSINSTALLED" IncludeMinimum="yes" />
 		</Upgrade>
 		<InstallExecuteSequence>
       <Custom Action="ErrNetfx20NotInstalled" Before="CostInitialize">NOT NETFX20INSTALLED AND NOT Installed</Custom>
